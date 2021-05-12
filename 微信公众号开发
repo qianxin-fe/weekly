@@ -13,6 +13,7 @@
 		vue2+vant的单页面应用
 	2）如何接入公众号中
         菜单项配置直接配置前端路由
+	```js
         {
             "button":[
             {	
@@ -41,6 +42,7 @@
                 }]
             }]
         }
+	```
 	3）移动端开发注意事项
         正确的配置viewport
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no" />
@@ -55,6 +57,7 @@
 			1.如何正确调用微信sdk
             除了基本的绑定域名引入jweixin.js文件之外
             重点：所有需要使用JS-SDK的页面必须先注入配置信息，否则无法调用，配置信息示例
+	    ```js
             wx.config({
         	    debug: false, // 开启调试模式,调用的所有api的返回值
               appId: res.appid, // 必填，公众号的唯一标识
@@ -63,7 +66,9 @@
               signature: res.signature, // 必填，签名
               jsApiList: ['scanQRCode', 'closeWindow', 'previewImage']
             });
+	    ```
       2.如何获取配置信息
+      	```js
           const request = require('request');
           const sha1 = require('js-sha1'); // 引入sha1加密算法，需要使用sha1算法生成签名
 
@@ -119,7 +124,7 @@
                   console.log(error);
               });
           });
-
+```
 			3.微信的bug(https://developers.weixin.qq.com/community/develop/doc/000cc20e8b835841fce87436e56c00)
 ## 4.调试
   1) chrom调试工具
