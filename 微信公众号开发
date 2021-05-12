@@ -1,0 +1,129 @@
+# 微信公众号开发介绍
+## 1.注册公众号
+
+## 2.接入微信公众平台
+	1）填写服务器配置
+	2）验证配置有效性
+	3）根据接口文档实现逻辑
+
+    到这一步就可以进行各种配置了，配置菜单 配置对话信息 推送消息等
+
+## 3.开发
+	1) 以天眼小助手为例，介绍移动端开发方案
+		vue2+vant的单页面应用
+	2）如何接入公众号中
+        菜单项配置直接配置前端路由
+        {
+            "button":[
+            {	
+                "type":"click",
+                "name":"今日歌曲",
+                "key":"V1001_TODAY_MUSIC"
+            },
+            {
+                "name":"菜单",
+                "sub_button":[{	
+                    "type":"view",
+                    "name":"搜索",
+                    "url":"http://www.soso.com/"
+                    },
+                    {
+                        "type":"miniprogram",
+                        "name":"wxa",
+                        "url":"http://mp.weixin.qq.com",
+                        "appid":"wx286b93c14bbf93aa",
+                        "pagepath":"pages/lunar/index"
+                    },
+                    {
+                    "type":"click",
+                    "name":"赞一下我们",
+                    "key":"V1001_GOOD"
+                }]
+            }]
+        }
+	3）移动端开发注意事项
+        正确的配置viewport
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no" />
+        这一系列的配置是为了保证layout viewport的正确大小 保证在页面进行缩放时viewport能正常展示
+        适配方案
+        目前小助手使用的方案是vant提供 px flex
+        攻防社区使用方案为媒体查询设置样式
+
+        适配方案多种多样可选取一种方案进行适配
+		
+	4) 开发中遇到的问题
+			1.如何正确调用微信sdk
+            除了基本的绑定域名引入jweixin.js文件之外
+            重点：所有需要使用JS-SDK的页面必须先注入配置信息，否则无法调用，配置信息示例
+            wx.config({
+        	    debug: false, // 开启调试模式,调用的所有api的返回值
+              appId: res.appid, // 必填，公众号的唯一标识
+              timestamp: res.timestamp, // 必填，生成签名的时间戳
+              nonceStr: res.nonce_str, // 必填，生成签名的随机串
+              signature: res.signature, // 必填，签名
+              jsApiList: ['scanQRCode', 'closeWindow', 'previewImage']
+            });
+      2.如何获取配置信息
+          const request = require('request');
+          const sha1 = require('js-sha1'); // 引入sha1加密算法，需要使用sha1算法生成签名
+
+          app.post('/getWXConfigParams', function (req, res) {
+              const appId = '....';   // 公众号的addId   
+              const appSecret = '.....'  // 公众号的appSecret
+              const url = req.body.url; // 初始化jsdk的页面url，如果是单页应用记得截掉url的#部分
+
+              let promise = new Promise((resolve, reject) => {
+                  // 第一步，通过appId和appSecret 获取access_token
+                  request(`https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${appId}&secret=${appSecret}`, function (error, response, body) {
+                      if (!error && response.statusCode == 200) { 
+                          let access_token = JSON.parse(body).access_token;
+                          console.log('第一步获取access_token：', access_token);
+                          resolve(access_token);
+                      } else {
+                          reject(error);
+                      }
+                      });
+              });
+                    
+              promise.then(access_token => {
+                  // 第二步，通过第一步的access_token获取票据ticket
+                  return new Promise((resolve, reject) => {
+                      request(`https://api.weixin.qq.com/cgi-bin/ticket/getticket?access_token=${access_token}&type=jsapi`, function (error, response, body) {
+                          if (!error && response.statusCode == 200) { 
+                              let ticket = JSON.parse(body).ticket;
+                              console.log('第二步获取ticket：',ticket);
+                              resolve(ticket);
+                          } else {
+                              reject(error);
+                          }
+                      });
+                  });
+                            
+              }).then(ticket => {
+                  const createNonceStr = () => Math.random().toString(36).substr(2, 15);
+                  const createTimeStamp = () => parseInt(new Date().getTime() / 1000) + '';
+                  const calcSignature = function (ticket, noncestr, ts, url) {
+                      var str = `jsapi_ticket=${ticket}&noncestr=${noncestr}&timestamp=${ts}&url=${url}`;
+                      shaObj = sha1(str); //使用sha1加密算法
+                      return shaObj;
+                  }
+                  const noncestr = createNonceStr(); // 随机字符串
+                  const timestamp = createTimeStamp(); // 时间戳
+                  const signature = calcSignature(ticket, noncestr, timestamp, url);  // 通过sha1算法得到签名
+                  res.send({
+                      noncestr: noncestr,
+                      timestamp: timestamp,
+                      signature: signature,
+                  })
+              }).catch(error =>{
+                  console.log(error);
+              });
+          });
+
+			3.微信的bug(https://developers.weixin.qq.com/community/develop/doc/000cc20e8b835841fce87436e56c00)
+## 4.调试
+  1) chrom调试工具
+  2) 微信开发者工具
+
+## 5.看下成品效果
+
