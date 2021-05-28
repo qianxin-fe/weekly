@@ -293,8 +293,8 @@ console.log(b(1))
 webpack 之后会发现 b 模块内容变成了：
 // b.js
 console.log(function (v){return v}(1))
-虽然 b 模块的导出是被忽略了，但是副作用代码被保留下来了。由于目前 transformer 转换后可能引入的各种奇怪操作引发的副作用（参考：你的Tree-Shaking并没什么卵用），很多时候我们会发现就算有了 tree shaking 我们的 bundle size 还是没有明显的减小。而通常我们期望的是 b 模块既然不被使用了，其中所有的代码应该不被引入才对。
-这个时候 sideEffects 的作用就显现出来了：如果我们引入的 包/模块 被标记为 sideEffects: false 了，那么不管它是否真的有副作用，只要它没有被引用到，整个 模块/包 都会被完整的移除。
+虽然 b 模块的导出是被忽略了，但是副作用代码被保留下来了。由于目前 transformer 转换后可能引入的各种奇怪操作引发的副作用，很多时候我们会发现就算有了 tree shaking 我们的 bundle size 还是没有明显的减小。而通常我们期望的是 b 模块既然不被使用了，其中所有的代码应该不被引入才对。
+这个时候 sideEffects 的作用就显现出来了：如果我们引入的包/模块 被标记为 sideEffects: false 了，那么不管它是否真的有副作用，只要它没有被引用到，整个模块/包都会被完整的移除。
 ```
 
 3.webpack 5 还能处理对CommonJs的tree shaking
