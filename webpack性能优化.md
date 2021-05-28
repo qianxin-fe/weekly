@@ -234,9 +234,9 @@ console.log('hello world');
 打包结果
 ```javascript
 
-!function(e){var n={};function t(o){if(n[o])return n[o].exports;var r=n[o]={i:o,l:!1,exports:{}};return e[o].call(r.exports,r,r.exports,t),r.l=!0,r.exports}t.m=e,t.c=n,t.d=function(e,n,o){t.o(e,n)||Object.defineProperty(e,n,{enumerable:!0,get:o})},t.r=function(e){"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(e,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(e,"__esModule",{value:!0})},t.t=function(e,n){if(1&n&&(e=t(e)),8&n)return e;if(4&n&&"object"==typeof e&&e&&e.__esModule)return e;var o=Object.create(null);if(t.r(o),Object.defineProperty(o,"default",{enumerable:!0,value:e}),2&n&&"string"!=typeof e)for(var r in e)t.d(o,r,function(n){return e[n]}.bind(null,r));return o},t.n=function(e){var n=e&&e.__esModule?function(){return e.default}:function(){return e};return t.d(n,"a",n),n},t.o=function(e,n){return Object.prototype.hasOwnProperty.call(e,n)},t.p="",t(t.s=0)}([function(e,n,t){"use strict";t.r(n);var o={a:function(){console.log("a")},b:function(){console.log("b")}};console.log(o.a()),console.log("hello world")}]);
+webpack 4: !function(e){var n={};function t(o){if(n[o])return n[o].exports;var r=n[o]={i:o,l:!1,exports:{}};return e[o].call(r.exports,r,r.exports,t),r.l=!0,r.exports}t.m=e,t.c=n,t.d=function(e,n,o){t.o(e,n)||Object.defineProperty(e,n,{enumerable:!0,get:o})},t.r=function(e){"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(e,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(e,"__esModule",{value:!0})},t.t=function(e,n){if(1&n&&(e=t(e)),8&n)return e;if(4&n&&"object"==typeof e&&e&&e.__esModule)return e;var o=Object.create(null);if(t.r(o),Object.defineProperty(o,"default",{enumerable:!0,value:e}),2&n&&"string"!=typeof e)for(var r in e)t.d(o,r,function(n){return e[n]}.bind(null,r));return o},t.n=function(e){var n=e&&e.__esModule?function(){return e.default}:function(){return e};return t.d(n,"a",n),n},t.o=function(e,n){return Object.prototype.hasOwnProperty.call(e,n)},t.p="",t(t.s=0)}([function(e,n,t){"use strict";t.r(n);var o={a:function(){console.log("a")},b:function(){console.log("b")}};console.log(o.a()),console.log("hello world")}]);
 
-(()=>{"use strict";const o=function(){console.log("a")};console.log(o()),console.log("hello world")})();
+webpack 5: (()=>{"use strict";const o=function(){console.log("a")};console.log(o()),console.log("hello world")})();
 ```
 最后发现产出的代码是：把test文件里面的部分代码被删除掉了。删除了没有使用到的b函数，正确的保留了a函数。webpack4是做不到这一点的，只有webpack5才有这个功能。webpack 4 没有分析模块的导出和引用之间的依赖关系。webpack 5 有一个新的选项optimization.innerGraph，在生产模式下是默认启用的，它可以对模块中的标志进行分析，找出导出和引用之间的依赖关系。
 
@@ -252,6 +252,50 @@ export function test() {
 ```
 上述代码中，当设置了"sideEffetcs: false"时，一旦发现test方法没有使用，不但删除test，还会删除./something。
 sideEffects 是什么呢？用一句话来概括就是：让webpack去除tree shaking带来副作用的代码。false为了告诉webpack我这个npm包里的所有文件代码都是没有副作用的。
+
+```javascript
+// a.js
+export function a() {}
+
+// b.js
+export function b(){}
+
+// package/index.js
+import a from './a'
+import b from './b'
+export { a, b }
+
+// app.js
+import {a} from 'package'
+console.log(a)
+
+当我们以app.js为 entry 时，经过摇树后的代码会变成这样：
+// a.js
+export function a() {}
+
+// b.js 不再导出 function b(){}
+function b() {}
+
+// package/index.js 不再导出 b 模块
+import a from './a'
+import b from './b'
+export { a }
+
+// app.js
+import {a} from 'package'
+console.log(a)
+
+但是如果 b 模块中添加了一些副作用，比如一个简单的 log：
+// b.js
+export function b(v) { reutrn v }
+console.log(b(1))
+
+webpack 之后会发现 b 模块内容变成了：
+// b.js
+console.log(function (v){return v}(1))
+虽然 b 模块的导出是被忽略了，但是副作用代码被保留下来了。由于目前 transformer 转换后可能引入的各种奇怪操作引发的副作用（参考：你的Tree-Shaking并没什么卵用），很多时候我们会发现就算有了 tree shaking 我们的 bundle size 还是没有明显的减小。而通常我们期望的是 b 模块既然不被使用了，其中所有的代码应该不被引入才对。
+这个时候 sideEffects 的作用就显现出来了：如果我们引入的 包/模块 被标记为 sideEffects: false 了，那么不管它是否真的有副作用，只要它没有被引用到，整个 模块/包 都会被完整的移除。
+```
 
 3.webpack 5 还能处理对CommonJs的tree shaking
 
