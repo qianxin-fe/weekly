@@ -22,7 +22,7 @@ devServer: {
   contentBase: resolve(__dirname, 'build'); // 运行项目的目录，即构建后的目录
   compress: true, // 启动gzip压缩
   port: 3000,
-  open: true, // 自动打开浏览器（设置的默认浏览器）
+  open: true,
 }
 ```
 
@@ -56,10 +56,17 @@ devServer: {
 **作用**：一个模块发生变化，只会重新打包该模块，而不是所有模块 =》 极大提升构建速度。
 
 **使用**：样式模块可以使用是因为sty-loader内部实现了，因此在开发环境中使用style-loader，打包速度更快；
-js文件默认没有HMR功能；html文件不需要，因为只有一个文件。
+js文件默认没有HMR功能，需要手动配置一下，同时，HMR功能对js的处理，只能处理非入口js文件；html文件默认没有HMR功能，但是他恰好不需要，因为只有一个html文件。
 ```javaScript
 devServer: {
   hot: true,
+}
+
+// js文件中这样配置
+if (module.hot) {
+  module.hot.accept('./test.js', function() {
+    a();
+  })
 }
 ```
 
@@ -159,6 +166,13 @@ use: {
 
 **contenthash**: 根据文件的内容生成hash值。不同文件hash值一定不一样。   
 
+**代码配置**:
+```javascript
+  output: {
+    filename: 'js/built.[hash/chunkhash/contenthash:10].js'
+  }
+```
+
 ## webpack 5当中添加了用于长期缓存的新算法。在生产模式下默认启用这些功能。
 Webpack 5 针对 moduleId 和 chunkId 的计算方式进行了优化，增加确定性的 moduleId 和 chunkId 的生成策略。moduleId 根据上下文模块路径，chunkId 根据 chunk 内容计算，最后为 moduleId 和 chunkId 生成 3 - 4 位的数字id，实现长期缓存，生产环境下默认开启。
 ```javascript
@@ -189,15 +203,13 @@ export function cube(x) {
   console.log('cube'); // 输出cube
   return x * x * x;
 }
-
-webpack 5：(()=>{"use strict";console.log((5,console.log("cube"),125))})();
 ```
 
-**问题**：比如b引用了a文件，index.js为入口文件引入了b.js，而a文件里面是一个对象，包含name，age，如果在index.js文件中只使用了name属性，ange属性没有使用，这个时候，webpack 4 还会将age属性编译。
+**问题**：比如index.js为入口文件引入了test.js，而test文件里面有两个函数a, b，如果在index.js文件中只使用了a函数，b函数没有使用，这个时候，webpack 4 还会将b函数编译。
 
 **webpack 5 tree shaking作用：**：打包体积更小
 
-  1.webpack能够处理嵌套模块的tree shaking
+  1.webpack 5 能够处理嵌套模块的tree shaking
 
 **代码实现：**:
 ```javascript
@@ -221,11 +233,14 @@ console.log('hello world');
 ```
 打包结果
 ```javascript
+
+!function(e){var n={};function t(o){if(n[o])return n[o].exports;var r=n[o]={i:o,l:!1,exports:{}};return e[o].call(r.exports,r,r.exports,t),r.l=!0,r.exports}t.m=e,t.c=n,t.d=function(e,n,o){t.o(e,n)||Object.defineProperty(e,n,{enumerable:!0,get:o})},t.r=function(e){"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(e,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(e,"__esModule",{value:!0})},t.t=function(e,n){if(1&n&&(e=t(e)),8&n)return e;if(4&n&&"object"==typeof e&&e&&e.__esModule)return e;var o=Object.create(null);if(t.r(o),Object.defineProperty(o,"default",{enumerable:!0,value:e}),2&n&&"string"!=typeof e)for(var r in e)t.d(o,r,function(n){return e[n]}.bind(null,r));return o},t.n=function(e){var n=e&&e.__esModule?function(){return e.default}:function(){return e};return t.d(n,"a",n),n},t.o=function(e,n){return Object.prototype.hasOwnProperty.call(e,n)},t.p="",t(t.s=0)}([function(e,n,t){"use strict";t.r(n);var o={a:function(){console.log("a")},b:function(){console.log("b")}};console.log(o.a()),console.log("hello world")}]);
+
 (()=>{"use strict";const o=function(){console.log("a")};console.log(o()),console.log("hello world")})();
 ```
-最后发现产出的代码是：把a文件里面的部分代码被删除掉了。删除了没有使用到的b函数，正确的保留了a函数。webpack4是做不到这一点的，只有webpack5才有这个功能。webpack 4 没有分析模块的导出和引用之间的依赖关系。webpack 5 有一个新的选项optimization.innerGraph，在生产模式下是默认启用的，它可以对模块中的标志进行分析，找出导出和引用之间的依赖关系。
+最后发现产出的代码是：把test文件里面的部分代码被删除掉了。删除了没有使用到的b函数，正确的保留了a函数。webpack4是做不到这一点的，只有webpack5才有这个功能。webpack 4 没有分析模块的导出和引用之间的依赖关系。webpack 5 有一个新的选项optimization.innerGraph，在生产模式下是默认启用的，它可以对模块中的标志进行分析，找出导出和引用之间的依赖关系。
 
-2.webpack能够处理多个模块之间的关系
+2.webpack 5 能够处理多个模块之间的关系
 ```javascript
 import { something } from './something';
 function usingSomething() {
@@ -236,28 +251,34 @@ export function test() {
 }
 ```
 上述代码中，当设置了"sideEffetcs: false"时，一旦发现test方法没有使用，不但删除test，还会删除./something。
-sideEffects 是什么呢？我用一句话来概括就是：让webpack去除tree shaking带来副作用的代码。false为了告诉webpack我这个npm包里的所有文件代码都是没有副作用的。
+sideEffects 是什么呢？用一句话来概括就是：让webpack去除tree shaking带来副作用的代码。false为了告诉webpack我这个npm包里的所有文件代码都是没有副作用的。
 
-3.webpack还能处理对CommonJs的tree shaking
+3.webpack 5 还能处理对CommonJs的tree shaking
 
 
 ## 代码分割
-**问题**：比如在入口js文件中引入了lodash库，没做处理的话，在打包的时候，会打包到一个文件中，特别大，lodash占用了很大内存。如果在a中引入lodash，b中同样引入了lodash，那么会打包两次。
+
+**方式一**: 假如项目中有两个文件，想让每一个文件都单独打包（默认两个文件打包进一个bundle），这个时候采用多入口文件的方式。
+```javascript
+// 单入口
+entry: './src/index.js',
+
+entry: {
+  // 多入口：有一个入口，最终的输出就有一个bundle
+  index: './src/index.js',
+  test: './src/test.js'
+},
+```
+**方式二**:
+
+**问题**：比如在入口js文件中引入了lodash库，没做处理的话，在打包的时候，会打包到一个文件中，特别大，lodash占用了很大内存。另外，如果在test文件中也引入lodash，b文件中同样引入了lodash，那么会打包两次。
 
 **作用**：将打包生成的一个文件，分割成多个文件，分割成多个文件之后，各个文件代码体积小，同时并行加载，加载速度更快，同时实现按需加载。
-代码未分割前，比如我有两个js文件，那么打包之后，这两个文件会在同一个bundle文件中。这种情况下采取多入口的方式。
 
 **代码配置**：
 ```javaScript
-// 1. 可以将node_modules中代码单独打包一个chunk最终输出
-// 2. 自动分析多入口chunk中，有没有公共的文件（这个文件不能太小）。如果有会打包成单独一个chunk；不会重复打包多次
-// 单入口
-// entry: './src/js/index.js',
-// entry: {
-// // 多入口：有一个入口，最终的输出就有一个bundle
-//   index: './src/js/index.js',
-//   test: './src/js/test.js'
-// },
+// 1. 可以将node_modules中代码单独打包一个chunk最终输出；
+// 2. 自动分析多入口chunk中，有没有公共的文件（这个文件不能太小）。如果有会打包成单独一个chunk；不会重复打包多次。
 optimization: {
   splitChunks: { 
     chunks: 'all'
@@ -265,6 +286,7 @@ optimization: {
 },
 ```
 
+**方式三**：
 ```javaScript
 // 通过js代码，让某个文件被单独打包成一个chunk
 // import动态导入语法：能将某个文件单独打包（这种写法是ES10写法）
