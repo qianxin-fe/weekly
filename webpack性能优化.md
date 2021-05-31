@@ -53,16 +53,18 @@ devServer: {
 ## 开发环境优化打包构建速度---HMR（Hot Module Replacement）热模块更新
 **问题**：当我们修改css文件样式的时候，js文件也会重新打包。若有100个模块，100个样式文件，只要修改一个文件，另外的所有文件都会重新打包，速度将非常慢。如果一个模块修改，只打包该模块？
 
-**作用**：一个模块发生变化，只会重新打包该模块，而不是所有模块 =》 极大提升构建速度。
+**作用**：一个模块发生变化，只会重新打包该模块极其涉及的模块，而不是所有模块。 =》 极大提升构建速度。
 
-**使用**：样式模块可以使用是因为sty-loader内部实现了，因此在开发环境中使用style-loader，打包速度更快；
-js文件默认没有HMR功能，需要手动配置一下，同时，HMR功能对js的处理，只能处理非入口js文件；html文件默认没有HMR功能，但是他恰好不需要，因为只有一个html文件。
+**使用**：
+  * html文件默认没有HMR功能，但是他恰好不需要，因为只有一个html文件。
+  * js文件默认没有HMR功能，需要手动配置。注：HMR功能对js的处理，只能处理非入口js文件；更新main.js文件会刷新整个网页。
+  * 样式模块可以使用是因为sty-loader内部实现了，因此在开发环境中使用style-loader，打包速度更快；
 ```javaScript
 devServer: {
   hot: true,
 }
 
-// js文件中这样配置
+// main.js文件中这样配置
 if (module.hot) {
   module.hot.accept('./test.js', function() {
     a();
@@ -169,7 +171,7 @@ use: {
 **代码配置**:
 ```javascript
   output: {
-    filename: 'js/built.[hash/chunkhash/contenthash:10].js'
+    filename: 'js/[name].[hash/chunkhash/contenthash:10].js'
   }
 ```
 
@@ -187,7 +189,7 @@ chunkIds: "deterministic", moduleIds: "deterministic"
 
 **作用**:去除无用代码，减少代码体积
 
-**代码配置**：
+**example**：
 ```javascript
 // index.js
 import { cube } from './test.js'
@@ -205,7 +207,7 @@ export function cube(x) {
 }
 ```
 
-**问题**：比如index.js为入口文件引入了test.js，而test文件里面有两个函数a, b，如果在index.js文件中只使用了a函数，b函数没有使用，这个时候，webpack 4 还会将b函数编译。
+**问题**：比如index.js为入口文件引入了test.js，而test文件里面有两个函数cube, square，如果在index.js文件中只使用了cube函数，square函数没有使用，这个时候，webpack 4 还会将square函数编译。
 
 **webpack 5 tree shaking作用：**：打包体积更小
 
@@ -231,14 +233,8 @@ import a from './test.js'
 console.log(a.a())
 console.log('hello world');
 ```
-打包结果
-```javascript
 
-webpack 4: !function(e){var n={};function t(o){if(n[o])return n[o].exports;var r=n[o]={i:o,l:!1,exports:{}};return e[o].call(r.exports,r,r.exports,t),r.l=!0,r.exports}t.m=e,t.c=n,t.d=function(e,n,o){t.o(e,n)||Object.defineProperty(e,n,{enumerable:!0,get:o})},t.r=function(e){"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(e,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(e,"__esModule",{value:!0})},t.t=function(e,n){if(1&n&&(e=t(e)),8&n)return e;if(4&n&&"object"==typeof e&&e&&e.__esModule)return e;var o=Object.create(null);if(t.r(o),Object.defineProperty(o,"default",{enumerable:!0,value:e}),2&n&&"string"!=typeof e)for(var r in e)t.d(o,r,function(n){return e[n]}.bind(null,r));return o},t.n=function(e){var n=e&&e.__esModule?function(){return e.default}:function(){return e};return t.d(n,"a",n),n},t.o=function(e,n){return Object.prototype.hasOwnProperty.call(e,n)},t.p="",t(t.s=0)}([function(e,n,t){"use strict";t.r(n);var o={a:function(){console.log("a")},b:function(){console.log("b")}};console.log(o.a()),console.log("hello world")}]);
-
-webpack 5: (()=>{"use strict";const o=function(){console.log("a")};console.log(o()),console.log("hello world")})();
-```
-最后发现产出的代码是：把test文件里面的部分代码被删除掉了。删除了没有使用到的b函数，正确的保留了a函数。webpack4是做不到这一点的，只有webpack5才有这个功能。webpack 4 没有分析模块的导出和引用之间的依赖关系。webpack 5 有一个新的选项optimization.innerGraph，在生产模式下是默认启用的，它可以对模块中的标志进行分析，找出导出和引用之间的依赖关系。
+在上述代码中，把test文件里面没有使用到的b函数删除，正确的保留了a函数。webpack4是做不到这一点的，只有webpack5才有这个功能。webpack 4 没有分析模块的导出和引用之间的依赖关系。webpack 5 有一个新的选项optimization.innerGraph，在生产模式下是默认启用的，它可以对模块中的标志进行分析，找出导出和引用之间的依赖关系。
 
 2.webpack 5 能够处理多个模块之间的关系
 ```javascript
@@ -250,8 +246,8 @@ export function test() {
   return usingSomething();
 }
 ```
-上述代码中，当设置了"sideEffetcs: false"时，一旦发现test方法没有使用，不但删除test，还会删除./something。
-sideEffects 是什么呢？用一句话来概括就是：让webpack去除tree shaking带来副作用的代码。false为了告诉webpack我这个npm包里的所有文件代码都是没有副作用的。
+上述代码中，当设置了"sideEffetcs: false"时，内部依赖图算法会找出 something 只有在使用 test 导出时才会使用。一旦发现test方法没有使用，不但删除test，还会删除./something。
+sideEffects 是什么呢？让webpack去除tree shaking带来副作用的代码。false为了告诉webpack我这个npm包里的所有文件代码都是没有副作用的。
 
 ```javascript
 // a.js
@@ -290,7 +286,7 @@ console.log(a)
 export function b(v) { reutrn v }
 console.log(b(1))
 
-webpack 之后会发现 b 模块内容变成了：
+打包之后会发现 b 模块内容变成了：
 // b.js
 console.log(function (v){return v}(1))
 虽然 b 模块的导出是被忽略了，但是副作用代码被保留下来了。由于目前 transformer 转换后可能引入的各种奇怪操作引发的副作用，很多时候我们会发现就算有了 tree shaking 我们的 bundle size 还是没有明显的减小。而通常我们期望的是 b 模块既然不被使用了，其中所有的代码应该不被引入才对。
@@ -381,11 +377,9 @@ esbuild、Snowpack、vite、webpack(特指webpack 5)等。
 
 webpack5里面甩掉了很多历史包袱，让代码更加严谨、规范化才能正常运行。
 
-**esbuild**: 它是一个JavaScript Bundler打包和压缩工具，它可以将JavaScript和TypeScript代码打包分发在网页上运行。
-
-**vite**: Vite的核心是基于浏览器原生的ES Module。但是，相比较传统的打包工具和开发工具而言，它做出了很多改变，采用esbuild来支持 .ts、jsx、.js 代码的转化就是其中之一。
-
-webpack每次启动项目，都需要预打包，打包一个bundle后，才能启动dev server，而vite利用浏览器自带的import功能，避开了这一步。
+webpack的痛点：
+* Webpack 的热更新会以当前修改的文件为入口重新 build 打包，所有涉及到的依赖也都会被重新加载一次；
+* webpack每次启动项目，都需要预打包，对所有的文件进行打包导致所需要的时间较长。
 
 <font color=#00ffff>目前，Vite已经和vue解耦，逐渐成为新型框架首选的工程化工具。</font>
 
